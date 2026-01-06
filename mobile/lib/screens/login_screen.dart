@@ -21,8 +21,27 @@ class _LoginScreenState extends State<LoginScreen> {
   @override
   void initState() {
     super.initState();
-    // Default valid format hint
-    _urlController.text = "https://";
+    _autoConnect();
+  }
+
+  Future<void> _autoConnect() async {
+    setState(() => _isLoading = true);
+    final url = await _apiService.fetchConnectionUrl();
+    if (url != null && mounted) {
+      _urlController.text = url;
+      // Optional: Auto-login if we had saved credentials (not implemented for safety)
+      setState(() {
+        _errorMessage = "Connected to Cloud OS!";
+        _isLoading = false;
+      });
+    } else {
+        if (mounted) {
+             setState(() {
+                _urlController.text = "https://"; // Fallback
+                _isLoading = false;
+             });
+        }
+    }
   }
 
   Future<void> _login() async {
@@ -40,6 +59,15 @@ class _LoginScreenState extends State<LoginScreen> {
     }
     if (url.endsWith('/')) {
         url = url.substring(0, url.length - 1);
+    }
+    
+    // Basic Validation
+    if (url.length < 10 || !url.contains('.')) {
+        setState(() {
+            _errorMessage = "Invalid Cloud URL. Check connection.txt or GitHub.";
+            _isLoading = false;
+        });
+        return;
     }
     
     _apiService.setBaseUrl(url);
