@@ -33,9 +33,15 @@ class _LoginScreenState extends State<LoginScreen> {
 
     // Update the service with the new URL
     String url = _urlController.text.trim();
+    
+    // Auto-fix URL format
+    if (!url.startsWith('http')) {
+      url = 'https://$url';
+    }
     if (url.endsWith('/')) {
         url = url.substring(0, url.length - 1);
     }
+    
     _apiService.setBaseUrl(url);
 
     final error = await _apiService.login(
