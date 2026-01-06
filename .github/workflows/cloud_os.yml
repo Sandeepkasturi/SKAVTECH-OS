@@ -47,12 +47,32 @@ jobs:
           echo "========================================================"
           echo "Copy the URL below and paste it into your Mobile App:"
           echo ""
-          grep -o 'https://.*\.loca\.lt' tunnel.log | head -n 1
-          echo ""
-          echo "========================================================"
+      - name: Publish Connection URL
+        run: |
+          # Extract URL
+          URL=$(grep -o 'https://.*\.loca\.lt' tunnel.log | head -n 1)
+          echo "$URL" > connection.txt
+          
+          # Configure Git
+          git config --global user.name 'CloudOS Bot'
+          git config --global user.email 'bot@noreply.github.com'
+          
+          # Commit and Push (Skip CI to prevent loops)
+          git add connection.txt
+          git commit -m "Update connection URL [skip ci]"
+          git push
+          
+          echo "URL Published to connection.txt: $URL"
+
+      - name: Debug Backend Log
+        if: always() # Run even if previous steps fail
+        run: |
+          echo "=== BACKEND LOGS ==="
+          cat backend.log || echo "backend.log not found"
+          echo "===================="
 
       - name: Keep Alive
         run: |
           # Keep the runner alive for up to 6 hours
-          echo "Cloud OS is running. Check 'Create Secure Tunnel' step for the URL."
+          echo "Cloud OS is running."
           sleep 21600
