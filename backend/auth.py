@@ -2,7 +2,7 @@ import jwt
 import datetime
 from fastapi import HTTPException, Security
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
-from passlib.context import CryptContext
+from passlib.hash import pbkdf2_sha256
 
 # Configuration
 SECRET_KEY = "super-secret-key-change-this-in-production"
@@ -10,13 +10,14 @@ ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = 30
 
 security = HTTPBearer()
-pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+# Use direct pbkdf2_sha256 wrapper for simplicity and cross-platform safety
+# pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
 def verify_password(plain_password, hashed_password):
-    return pwd_context.verify(plain_password, hashed_password)
+    return pbkdf2_sha256.verify(plain_password, hashed_password)
 
 def get_password_hash(password):
-    return pwd_context.hash(password)
+    return pbkdf2_sha256.hash(password)
 
 def create_access_token(data: dict):
     to_encode = data.copy()
@@ -40,6 +41,6 @@ def verify_token(credentials: HTTPAuthorizationCredentials = Security(security))
 FAKE_USERS_DB = {
     "admin": {
         "username": "admin",
-        "password_hash": "$2b$12$pvWxwwjnqXZZhMfp9yj9Oez27Kb07EIBCij05KQUnzywljPBRDsdq" 
+        "password_hash": "$pbkdf2-sha256$29000$OD8j5G0C9kZp4OsnMFx7/A$8a4176602012bd820c78d5231c519aa8261e443868BFeWyo4RkdeQYTU" 
     }
 }
