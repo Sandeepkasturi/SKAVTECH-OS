@@ -23,27 +23,27 @@ class CommandRequest(BaseModel):
 def read_root():
     return {"status": "CloudOS Controller Online"}
 
+from fastapi.responses import JSONResponse
+
 @app.post("/auth/login")
 def login(request: LoginRequest):
     try:
         user = FAKE_USERS_DB.get(request.username)
         if not user:
             print(f"Login failed: User {request.username} not found")
-            raise HTTPException(status_code=401, detail="Invalid credentials")
+            return JSONResponse(status_code=401, content={"detail": "Invalid credentials"})
             
         if not verify_password(request.password, user["password_hash"]):
             print(f"Login failed: Password mismatch for {request.username}")
-            raise HTTPException(status_code=401, detail="Invalid credentials")
+            return JSONResponse(status_code=401, content={"detail": "Invalid credentials"})
         
         access_token = create_access_token(data={"sub": user["username"]})
         return {"access_token": access_token, "token_type": "bearer"}
-    except HTTPException:
-        raise
     except Exception as e:
         import traceback
         traceback.print_exc()
         print(f"INTERNAL LOGIN ERROR: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+        return JSONResponse(status_code=500, content={"detail": f"Internal Server Error: {str(e)}"})
 
 @app.get("/os/status")
 def get_status(user: dict = Depends(verify_token)):
