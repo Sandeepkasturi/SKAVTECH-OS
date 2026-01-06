@@ -25,12 +25,25 @@ def read_root():
 
 @app.post("/auth/login")
 def login(request: LoginRequest):
-    user = FAKE_USERS_DB.get(request.username)
-    if not user or not verify_password(request.password, user["password_hash"]):
-        raise HTTPException(status_code=401, detail="Invalid credentials")
-    
-    access_token = create_access_token(data={"sub": user["username"]})
-    return {"access_token": access_token, "token_type": "bearer"}
+    try:
+        user = FAKE_USERS_DB.get(request.username)
+        if not user:
+            print(f"Login failed: User {request.username} not found")
+            raise HTTPException(status_code=401, detail="Invalid credentials")
+            
+        if not verify_password(request.password, user["password_hash"]):
+            print(f"Login failed: Password mismatch for {request.username}")
+            raise HTTPException(status_code=401, detail="Invalid credentials")
+        
+        access_token = create_access_token(data={"sub": user["username"]})
+        return {"access_token": access_token, "token_type": "bearer"}
+    except HTTPException:
+        raise
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        print(f"INTERNAL LOGIN ERROR: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
 
 @app.get("/os/status")
 def get_status(user: dict = Depends(verify_token)):
