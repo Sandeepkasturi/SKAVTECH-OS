@@ -1,0 +1,55 @@
+name: Cloud OS Provider
+
+on:
+  workflow_dispatch: # Allows manual trigger
+
+jobs:
+  provision-os:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v3
+
+      - name: Setup Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.10'
+
+      - name: Install Dependencies
+        run: |
+          pip install -r backend/requirements.txt
+          pip install -r agent/requirements.txt
+          # Install dependencies for system monitoring
+          sudo apt-get update && sudo apt-get install -y nginx
+
+      - name: Start CloudOS Backend
+        run: |
+          # Run in background
+          nohup python backend/main.py > backend.log 2>&1 &
+          echo "Backend started."
+
+      - name: Install Localtunnel
+        run: npm install -g localtunnel
+
+      - name: Create Secure Tunnel
+        run: |
+          # Start localtunnel on port 8000
+          nohup lt --port 8000 > tunnel.log 2>&1 &
+          
+          echo "Waiting for tunnel..."
+          sleep 10
+          
+          echo "========================================================"
+          echo "   YOUR CLOUD OS IS READY!"
+          echo "========================================================"
+          echo "Copy the URL below and paste it into your Mobile App:"
+          echo ""
+          grep -o 'https://.*\.loca\.lt' tunnel.log | head -n 1
+          echo ""
+          echo "========================================================"
+
+      - name: Keep Alive
+        run: |
+          # Keep the runner alive for up to 6 hours
+          echo "Cloud OS is running. Check 'Create Secure Tunnel' step for the URL."
+          sleep 21600
