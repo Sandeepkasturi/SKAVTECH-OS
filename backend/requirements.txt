@@ -5,3 +5,4 @@ python-multipart
 pyjwt
 passlib
 psutil
+websockets

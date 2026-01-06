@@ -4,12 +4,23 @@ import os
 # Add parent dir to sys.path to allow importing agent
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from fastapi import FastAPI, HTTPException, Depends
+from fastapi import FastAPI, HTTPException, Depends, WebSocket
+from fastapi.staticfiles import StaticFiles
+from starlette.websockets import WebSocketDisconnect
+import websockets
+import asyncio
 from pydantic import BaseModel
 from backend.auth import create_access_token, verify_password, FAKE_USERS_DB, verify_token
 from agent.executor import ActionExecutor
 
 app = FastAPI(title="CloudOS Remote Controller API")
+app = FastAPI(title="CloudOS Remote Controller API")
+
+# Mount noVNC static files
+# We assume /usr/share/novnc is available (standard ubuntu package)
+if os.path.exists("/usr/share/novnc"):
+    app.mount("/novnc", StaticFiles(directory="/usr/share/novnc", html=True), name="novnc")
+
 executor = ActionExecutor()
 
 class LoginRequest(BaseModel):
@@ -77,6 +88,40 @@ def add_command(request: NewCommandRequest):
     if not success:
         raise HTTPException(status_code=400, detail="Failed to add command")
     return {"status": "success", "commands": executor.get_commands()}
+
+@app.websocket("/websockify")
+async def vnc_proxy(websocket: WebSocket):
+    """
+    WebSocket proxy to local VNC server (localhost:5901)
+    """
+    await websocket.accept()
+    vnc_host = "localhost"
+    vnc_port = 5901
+
+    try:
+        async with websockets.connect(f"ws://{vnc_host}:{vnc_port}", subprotocols=['binary']) as vnc_ws:
+            async def forward_to_vnc():
+                try:
+                    while True:
+                        data = await websocket.receive_bytes()
+                        await vnc_ws.send(data)
+                except WebSocketDisconnect:
+                    pass
+                except Exception as e:
+                    print(f"Error forwarding to VNC: {e}")
+
+            async def forward_to_client():
+                try:
+                    while True:
+                        data = await vnc_ws.recv()
+                        await websocket.send_bytes(data)
+                except Exception as e:
+                     print(f"Error forwarding to Client: {e}")
+
+            await asyncio.gather(forward_to_vnc(), forward_to_client())
+    except Exception as e:
+        print(f"VNC Connection Error: {e}")
+        await websocket.close()
 
 if __name__ == "__main__":
     import uvicorn

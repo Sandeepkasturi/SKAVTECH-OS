@@ -26,7 +26,9 @@ jobs:
           pip install -r backend/requirements.txt
           pip install -r agent/requirements.txt
           # Install dependencies for system monitoring
-          sudo apt-get update && sudo apt-get install -y nginx
+          # Install dependencies for system monitoring and desktop
+          sudo apt-get update
+          sudo apt-get install -y nginx xfce4 xfce4-goodies tigervnc-standalone-server novnc python3-websockify
 
       - name: Start CloudOS Backend
         run: |

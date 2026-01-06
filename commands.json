@@ -39,5 +39,13 @@
         "pkill",
         "-f",
         "vnc"
+    ],
+    "Ping": [
+        "ping",
+        "google.com"
+    ],
+    "Chrome": [
+        "start",
+        "https://skavtechs.vercel.app"
     ]
 }

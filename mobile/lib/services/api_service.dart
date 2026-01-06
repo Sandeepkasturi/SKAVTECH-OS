@@ -3,12 +3,25 @@ import 'package:http/http.dart' as http;
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
 class ApiService {
+  // Singleton pattern
+  static final ApiService _instance = ApiService._internal();
+
+  factory ApiService() {
+    return _instance;
+  }
+
+  ApiService._internal();
+
   // Replace with dynamic URL
   String baseUrl = '';
   final _storage = const FlutterSecureStorage();
 
   void setBaseUrl(String url) {
-    baseUrl = url;
+    if (url.endsWith('/')) {
+        baseUrl = url.substring(0, url.length - 1);
+    } else {
+        baseUrl = url;
+    }
   }
 
   Future<String?> fetchConnectionUrl() async {
@@ -22,7 +35,7 @@ class ApiService {
       if (response.statusCode == 200) {
         final url = response.body.trim();
         if (url.startsWith('http')) {
-          baseUrl = url;
+          setBaseUrl(url); // Use setter to sanitize
           return url;
         }
       }
@@ -55,6 +68,7 @@ class ApiService {
   }
 
   Future<Map<String, dynamic>?> getStatus() async {
+    if (baseUrl.isEmpty) return null;
     try {
       final response = await http.get(
         Uri.parse('$baseUrl/os/status'),
@@ -74,6 +88,7 @@ class ApiService {
   }
 
   Future<Map<String, dynamic>> executeAction(String command) async {
+    if (baseUrl.isEmpty) return {'status': 'failed', 'error': 'No connection URL'};
     try {
       final response = await http.post(
         Uri.parse('$baseUrl/os/action'),
@@ -90,6 +105,7 @@ class ApiService {
   }
 
   Future<Map<String, dynamic>> fetchCommands() async {
+    if (baseUrl.isEmpty) return {};
     try {
       final response = await http.get(Uri.parse('$baseUrl/os/commands'));
       if (response.statusCode == 200) {
@@ -103,6 +119,7 @@ class ApiService {
   }
 
   Future<bool> addCommand(String name, String command) async {
+    if (baseUrl.isEmpty) return false;
     try {
       final response = await http.post(
         Uri.parse('$baseUrl/os/commands'),
