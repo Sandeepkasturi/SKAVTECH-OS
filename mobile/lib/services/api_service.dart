@@ -11,14 +11,33 @@ class ApiService {
     baseUrl = url;
   }
 
+  Future<String?> fetchConnectionUrl() async {
+    try {
+      // Fetch the raw file from the repository
+      final response = await http.get(
+        Uri.parse('https://raw.githubusercontent.com/Sandeepkasturi/SKAVTECH-OS/main/connection.txt'),
+        headers: {'Cache-Control': 'no-cache'}, // Prevent caching old URLs
+      );
+
+      if (response.statusCode == 200) {
+        final url = response.body.trim();
+        if (url.startsWith('http')) {
+          baseUrl = url;
+          return url;
+        }
+      }
+      return null;
+    } catch (e) {
+      print('Auto-discovery failed: $e');
+      return null;
+    }
+  }
+
   Future<String?> login(String username, String password) async {
     try {
       final response = await http.post(
         Uri.parse('$baseUrl/auth/login'),
-        headers: {
-          'Content-Type': 'application/json',
-          'Bypass-Tunnel-Reminder': 'true', // Required for Localtunnel
-        },
+        headers: {'Content-Type': 'application/json'},
         body: jsonEncode({'username': username, 'password': password}),
       );
 
@@ -45,7 +64,6 @@ class ApiService {
         headers: {
           'Authorization': 'Bearer $token',
           'Content-Type': 'application/json',
-          'Bypass-Tunnel-Reminder': 'true',
         },
       );
 
@@ -69,7 +87,6 @@ class ApiService {
         headers: {
           'Authorization': 'Bearer $token',
           'Content-Type': 'application/json',
-          'Bypass-Tunnel-Reminder': 'true',
         },
         body: jsonEncode({'command': command}),
       );
