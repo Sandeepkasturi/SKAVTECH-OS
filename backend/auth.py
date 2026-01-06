@@ -41,6 +41,6 @@ def verify_token(credentials: HTTPAuthorizationCredentials = Security(security))
 FAKE_USERS_DB = {
     "admin": {
         "username": "admin",
-        "password_hash": "$pbkdf2-sha256$29000$OD8j5G0C9kZp4OsnMFx7/A$8a4176602012bd820c78d5231c519aa8261e443868BFeWyo4RkdeQYTU" 
+        "password_hash": "$pbkdf2-sha256$29000$NkbonbP2HuN87x2DMIbQug$w9149XaiGpXDNTeXRxl3P4U7jAcp9JMUwOtioFOBfcQ" 
     }
 }

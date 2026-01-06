@@ -46,22 +46,37 @@ def login(request: LoginRequest):
         return JSONResponse(status_code=500, content={"detail": f"Internal Server Error: {str(e)}"})
 
 @app.get("/os/status")
-def get_status(user: dict = Depends(verify_token)):
+def get_status():
     """
-    Get system status from the Agent. Protected route.
+    Get system status from the Agent. Public route.
     """
     return executor.get_system_status()
 
 @app.post("/os/action")
-def execute_action(request: CommandRequest, user: dict = Depends(verify_token)):
+def execute_action(request: CommandRequest):
     """
-    Execute a command via the Agent. Protected route.
+    Execute a command via the Agent. Public route.
     """
     result = executor.execute_action(request.command)
     if result.get("status") == "failed":
         raise HTTPException(status_code=400, detail=result.get("error", "Execution failed"))
     
     return result
+
+class NewCommandRequest(BaseModel):
+    name: str
+    command: str
+
+@app.get("/os/commands")
+def get_commands():
+    return executor.get_commands()
+
+@app.post("/os/commands")
+def add_command(request: NewCommandRequest):
+    success = executor.add_command(request.name, request.command)
+    if not success:
+        raise HTTPException(status_code=400, detail="Failed to add command")
+    return {"status": "success", "commands": executor.get_commands()}
 
 if __name__ == "__main__":
     import uvicorn

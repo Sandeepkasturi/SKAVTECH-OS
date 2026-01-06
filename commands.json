@@ -1,0 +1,43 @@
+{
+    "restart_nginx": [
+        "sudo",
+        "systemctl",
+        "restart",
+        "nginx"
+    ],
+    "stop_nginx": [
+        "sudo",
+        "systemctl",
+        "stop",
+        "nginx"
+    ],
+    "start_nginx": [
+        "sudo",
+        "systemctl",
+        "start",
+        "nginx"
+    ],
+    "get_logs": [
+        "tail",
+        "-n",
+        "50",
+        "/var/log/syslog"
+    ],
+    "update_system": [
+        "sudo",
+        "apt",
+        "update"
+    ],
+    "whoami": [
+        "whoami"
+    ],
+    "start_desktop": [
+        "bash",
+        "agent/scripts/start_vnc.sh"
+    ],
+    "stop_desktop": [
+        "pkill",
+        "-f",
+        "vnc"
+    ]
+}

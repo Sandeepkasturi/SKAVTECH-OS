@@ -55,14 +55,10 @@ class ApiService {
   }
 
   Future<Map<String, dynamic>?> getStatus() async {
-    final token = await _storage.read(key: 'jwt_token');
-    if (token == null) return null;
-
     try {
       final response = await http.get(
         Uri.parse('$baseUrl/os/status'),
         headers: {
-          'Authorization': 'Bearer $token',
           'Content-Type': 'application/json',
         },
       );
@@ -78,14 +74,10 @@ class ApiService {
   }
 
   Future<Map<String, dynamic>> executeAction(String command) async {
-    final token = await _storage.read(key: 'jwt_token');
-    if (token == null) return {'status': 'failed', 'error': 'No token'};
-
     try {
       final response = await http.post(
         Uri.parse('$baseUrl/os/action'),
         headers: {
-          'Authorization': 'Bearer $token',
           'Content-Type': 'application/json',
         },
         body: jsonEncode({'command': command}),
@@ -94,6 +86,33 @@ class ApiService {
       return jsonDecode(response.body);
     } catch (e) {
       return {'status': 'failed', 'error': e.toString()};
+    }
+  }
+
+  Future<Map<String, dynamic>> fetchCommands() async {
+    try {
+      final response = await http.get(Uri.parse('$baseUrl/os/commands'));
+      if (response.statusCode == 200) {
+        return jsonDecode(response.body);
+      }
+      return {};
+    } catch (e) {
+      print("Error fetching commands: $e");
+      return {};
+    }
+  }
+
+  Future<bool> addCommand(String name, String command) async {
+    try {
+      final response = await http.post(
+        Uri.parse('$baseUrl/os/commands'),
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({'name': name, 'command': command}),
+      );
+      return response.statusCode == 200;
+    } catch (e) {
+      print("Error adding command: $e");
+      return false;
     }
   }
 

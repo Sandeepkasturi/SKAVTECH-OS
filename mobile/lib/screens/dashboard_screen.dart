@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../services/api_service.dart';
 import 'login_screen.dart';
+import 'remote_desktop_screen.dart';
 import 'dart:async';
 
 class DashboardScreen extends StatefulWidget {
@@ -14,14 +15,15 @@ class DashboardScreen extends StatefulWidget {
 class _DashboardScreenState extends State<DashboardScreen> {
   final _apiService = ApiService();
   Map<String, dynamic>? _status;
+  Map<String, dynamic> _commands = {};
   bool _isLoading = true;
   Timer? _timer;
 
   @override
   void initState() {
     super.initState();
-    _fetchStatus();
-    _timer = Timer.periodic(const Duration(seconds: 5), (timer) => _fetchStatus());
+    _fetchData();
+    _timer = Timer.periodic(const Duration(seconds: 5), (timer) => _fetchData());
   }
 
   @override
@@ -30,15 +32,14 @@ class _DashboardScreenState extends State<DashboardScreen> {
     super.dispose();
   }
 
-  Future<void> _fetchStatus() async {
+  Future<void> _fetchData() async {
     final status = await _apiService.getStatus();
+    final commands = await _apiService.fetchCommands();
+    
     if (mounted) {
-      if (status == null) {
-        // If status is null (likely 401), we might want to redirect to login or show error
-        // For now, just show error
-      }
       setState(() {
         _status = status;
+        _commands = commands;
         _isLoading = false;
       });
     }
@@ -57,33 +58,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
   Future<void> _executeAction(String command, String label) async {
     final scaffoldMessenger = ScaffoldMessenger.of(context);
     
-    // Show confirmation
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (context) => AlertDialog(
-        backgroundColor: Colors.grey[850], // Dark mode
-        title: Text('Confirm Action', style: TextStyle(color: Colors.white)),
-        content: Text('Are you sure you want to $label?', style: TextStyle(color: Colors.grey[300])),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context, false),
-            child: const Text('Cancel'),
-          ),
-          TextButton(
-            onPressed: () => Navigator.pop(context, true),
-            style: TextButton.styleFrom(foregroundColor: Colors.redAccent),
-            child: const Text('Execute'),
-          ),
-        ],
-      ),
-    );
-
-    if (confirmed != true) return;
-
-    scaffoldMessenger.showSnackBar(
-      const SnackBar(content: Text('Executing...')),
-    );
-
     final result = await _apiService.executeAction(command);
 
     if (result['status'] == 'success') {
@@ -101,6 +75,92 @@ class _DashboardScreenState extends State<DashboardScreen> {
         ),
       );
     }
+  }
+
+  Future<void> _openRemoteDesktop() async {
+    final scaffoldMessenger = ScaffoldMessenger.of(context);
+    scaffoldMessenger.showSnackBar(
+      const SnackBar(content: Text('Starting Desktop Environment...')),
+    );
+    
+    await _apiService.executeAction('start_desktop');
+    
+    String ip = 'localhost';
+    try {
+      final uri = Uri.parse(_apiService.baseUrl);
+      ip = uri.host;
+    } catch (e) {
+      print("Error parsing IP: $e");
+    }
+
+    if (mounted) {
+       Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (context) => RemoteDesktopScreen(ipAddress: ip),
+        ),
+      );
+    }
+  }
+
+  Future<void> _showAddCommandDialog() async {
+    final nameController = TextEditingController();
+    final commandController = TextEditingController();
+
+    return showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        backgroundColor: Colors.grey[850],
+        title: Text('New Action', style: TextStyle(color: Colors.white)),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            TextField(
+              controller: nameController,
+              style: TextStyle(color: Colors.white),
+              decoration: InputDecoration(
+                labelText: 'Action Name (e.g. Ping Google)',
+                labelStyle: TextStyle(color: Colors.grey),
+                enabledBorder: UnderlineInputBorder(borderSide: BorderSide(color: Colors.grey)),
+              ),
+            ),
+            SizedBox(height: 16),
+            TextField(
+              controller: commandController,
+              style: TextStyle(color: Colors.white),
+              decoration: InputDecoration(
+                labelText: 'Command (e.g. ping -c 3 google.com)',
+                labelStyle: TextStyle(color: Colors.grey),
+                enabledBorder: UnderlineInputBorder(borderSide: BorderSide(color: Colors.grey)),
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: () async {
+              if (nameController.text.isNotEmpty && commandController.text.isNotEmpty) {
+                final success = await _apiService.addCommand(
+                  nameController.text, 
+                  commandController.text
+                );
+                if (success) {
+                   _fetchData(); // Refresh list
+                   if (context.mounted) Navigator.pop(context);
+                } else {
+                  // Show error? 
+                }
+              }
+            },
+            child: Text('Create'),
+          ),
+        ],
+      ),
+    );
   }
 
   Widget _buildStatusCard(String title, String value, IconData icon, Color color) {
@@ -137,6 +197,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
   @override
   Widget build(BuildContext context) {
+    // Convert commands map to list for display
+    final commandList = _commands.entries.toList();
+
     return Scaffold(
       backgroundColor: Colors.grey[900],
       appBar: AppBar(
@@ -146,7 +209,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
         actions: [
           IconButton(
             icon: const Icon(Icons.refresh),
-            onPressed: _fetchStatus,
+            onPressed: _fetchData,
           ),
           IconButton(
             icon: const Icon(Icons.logout),
@@ -154,82 +217,96 @@ class _DashboardScreenState extends State<DashboardScreen> {
           ),
         ],
       ),
+      floatingActionButton: FloatingActionButton(
+        onPressed: _showAddCommandDialog,
+        backgroundColor: Colors.blueAccent,
+        child: const Icon(Icons.add, color: Colors.white),
+      ),
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())
-          : _status == null
-              ? Center(child: Text('Offline / Connection Error', style: TextStyle(color: Colors.white)))
-              : RefreshIndicator(
-                  onRefresh: _fetchStatus,
-                  child: ListView(
-                    padding: const EdgeInsets.all(16),
+          : RefreshIndicator(
+              onRefresh: _fetchData,
+              child: ListView(
+                padding: const EdgeInsets.all(16),
+                children: [
+                   if (_status == null)
+                     const Padding(
+                       padding: EdgeInsets.only(bottom: 20),
+                       child: Center(child: Text('Offline', style: TextStyle(color: Colors.red))),
+                     ),
+                  // Status Grid
+                  if (_status != null)
+                  GridView.count(
+                    shrinkWrap: true,
+                    crossAxisCount: 2,
+                    crossAxisSpacing: 16,
+                    mainAxisSpacing: 16,
+                    childAspectRatio: 1.3,
+                    physics: const NeverScrollableScrollPhysics(),
                     children: [
-                      // Status Grid
-                      GridView.count(
-                        shrinkWrap: true,
-                        crossAxisCount: 2,
-                        crossAxisSpacing: 16,
-                        mainAxisSpacing: 16,
-                        childAspectRatio: 1.3,
-                        physics: const NeverScrollableScrollPhysics(),
-                        children: [
-                          _buildStatusCard('CPU Usage', _status!['cpu_usage'] ?? 'N/A', Icons.memory, Colors.blue),
-                          _buildStatusCard('RAM Usage', _status!['ram_usage'] ?? 'N/A', Icons.storage, Colors.orange),
-                          _buildStatusCard('Disk Usage', _status!['disk_usage'] ?? 'N/A', Icons.disc_full, Colors.purple),
-                          _buildStatusCard('OS Status', 'Active', Icons.check_circle, Colors.green),
-                        ],
-                      ),
-                      const SizedBox(height: 32),
-                      Text(
-                        'Actions',
-                        style: GoogleFonts.outfit(
-                          color: Colors.white,
-                          fontSize: 20,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                      const SizedBox(height: 16),
-                      // Action Buttons
-                      ListTile(
-                        tileColor: Colors.grey[800],
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                        leading: Container(
-                          padding: const EdgeInsets.all(8),
-                          decoration: BoxDecoration(color: Colors.blue.withOpacity(0.2), borderRadius: BorderRadius.circular(8)),
-                          child: const Icon(Icons.refresh, color: Colors.blue),
-                        ),
-                        title: const Text('Restart Nginx', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-                        subtitle: const Text('Restart the web server', style: TextStyle(color: Colors.grey)),
-                        onTap: () => _executeAction('restart_nginx', 'Restart Nginx'),
-                      ),
-                      const SizedBox(height: 8),
-                      ListTile(
-                        tileColor: Colors.grey[800],
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                        leading: Container(
-                          padding: const EdgeInsets.all(8),
-                          decoration: BoxDecoration(color: Colors.purple.withOpacity(0.2), borderRadius: BorderRadius.circular(8)),
-                          child: const Icon(Icons.description, color: Colors.purple),
-                        ),
-                        title: const Text('Get System Logs', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-                        subtitle: const Text('Tail last 50 lines of syslog', style: TextStyle(color: Colors.grey)),
-                        onTap: () => _executeAction('get_logs', 'fetch logs'),
-                      ),
-                      const SizedBox(height: 8),
-                      ListTile(
-                        tileColor: Colors.grey[800],
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                        leading: Container(
-                          padding: const EdgeInsets.all(8),
-                          decoration: BoxDecoration(color: Colors.green.withOpacity(0.2), borderRadius: BorderRadius.circular(8)),
-                          child: const Icon(Icons.info_outline, color: Colors.green),
-                        ),
-                        title: const Text('Check User', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-                        subtitle: const Text('Run whoami', style: TextStyle(color: Colors.grey)),
-                        onTap: () => _executeAction('whoami', 'check user'),
-                      ),
+                      _buildStatusCard('CPU Usage', _status!['cpu_usage'] ?? 'N/A', Icons.memory, Colors.blue),
+                      _buildStatusCard('RAM Usage', _status!['ram_usage'] ?? 'N/A', Icons.storage, Colors.orange),
+                      _buildStatusCard('Disk Usage', _status!['disk_usage'] ?? 'N/A', Icons.disc_full, Colors.purple),
+                      _buildStatusCard('OS Status', 'Active', Icons.check_circle, Colors.green),
                     ],
                   ),
-                ),
+                  const SizedBox(height: 32),
+                  Text(
+                    'Actions',
+                    style: GoogleFonts.outfit(
+                      color: Colors.white,
+                      fontSize: 20,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  
+                  // Dynamic List
+                  if (_commands.isEmpty)
+                     const Center(child: Text("No actions available", style: TextStyle(color: Colors.grey))),
+
+                  ...commandList.map((entry) {
+                      final key = entry.key;
+                      // Special handling for remote desktop button style if desired, 
+                      // or just standard list tiles.
+                      // Identify Remote Desktop by key if needed
+                      if (key == 'start_desktop' || key == 'remote_desktop') {
+                           return Padding(
+                             padding: const EdgeInsets.only(bottom: 8.0),
+                             child: ListTile(
+                              tileColor: Colors.grey[800],
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                              leading: Container(
+                                padding: const EdgeInsets.all(8),
+                                decoration: BoxDecoration(color: Colors.red.withOpacity(0.2), borderRadius: BorderRadius.circular(8)),
+                                child: const Icon(Icons.desktop_windows, color: Colors.red),
+                              ),
+                              title: const Text('Remote Desktop', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                              subtitle: const Text('Connect to Ubuntu GUI', style: TextStyle(color: Colors.grey)),
+                              onTap: () => _openRemoteDesktop(),
+                             ),
+                           );
+                      }
+
+                      return Padding(
+                        padding: const EdgeInsets.only(bottom: 8.0),
+                        child: ListTile(
+                          tileColor: Colors.grey[800],
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                          leading: Container(
+                            padding: const EdgeInsets.all(8),
+                            decoration: BoxDecoration(color: Colors.blue.withOpacity(0.2), borderRadius: BorderRadius.circular(8)),
+                            child: const Icon(Icons.code, color: Colors.blue),
+                          ),
+                          title: Text(key.replaceAll('_', ' ').toUpperCase(), style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                          subtitle: Text('Run $key', style: const TextStyle(color: Colors.grey)),
+                          onTap: () => _executeAction(key, key),
+                        ),
+                      );
+                  }).toList(),
+                ],
+              ),
+            ),
     );
   }
 }

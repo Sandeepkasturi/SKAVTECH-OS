@@ -12,8 +12,6 @@ class LoginScreen extends StatefulWidget {
 
 class _LoginScreenState extends State<LoginScreen> {
   final _urlController = TextEditingController();
-  final _usernameController = TextEditingController();
-  final _passwordController = TextEditingController();
   final _apiService = ApiService();
   bool _isLoading = false;
   String? _errorMessage;
@@ -29,11 +27,7 @@ class _LoginScreenState extends State<LoginScreen> {
     final url = await _apiService.fetchConnectionUrl();
     if (url != null && mounted) {
       _urlController.text = url;
-      // Optional: Auto-login if we had saved credentials (not implemented for safety)
-      setState(() {
-        _errorMessage = "Connected to Cloud OS!";
-        _isLoading = false;
-      });
+      _login(url); // Auto-login
     } else {
         if (mounted) {
              setState(() {
@@ -44,14 +38,16 @@ class _LoginScreenState extends State<LoginScreen> {
     }
   }
 
-  Future<void> _login() async {
+  Future<void> _login(String urlOverride) async {
     setState(() {
       _isLoading = true;
       _errorMessage = null;
     });
 
-    // Update the service with the new URL
-    String url = _urlController.text.trim();
+    String url = urlOverride.trim();
+    if (url.isEmpty) {
+        url = _urlController.text.trim();
+    }
     
     // Auto-fix URL format
     if (!url.startsWith('http')) {
@@ -61,27 +57,17 @@ class _LoginScreenState extends State<LoginScreen> {
         url = url.substring(0, url.length - 1);
     }
     
-    // Basic Validation
-    if (url.length < 10 || !url.contains('.')) {
-        setState(() {
-            _errorMessage = "Invalid Cloud URL. Check connection.txt or GitHub.";
-            _isLoading = false;
-        });
-        return;
-    }
-    
     _apiService.setBaseUrl(url);
 
-    final error = await _apiService.login(
-      _usernameController.text,
-      _passwordController.text,
-    );
+    // No actual login needed on backend now
+    // Just verify connection by getting status
+    final status = await _apiService.getStatus();
 
     setState(() {
       _isLoading = false;
     });
 
-    if (error == null) {
+    if (status != null) {
       if (mounted) {
         Navigator.pushReplacement(
           context,
@@ -90,7 +76,7 @@ class _LoginScreenState extends State<LoginScreen> {
       }
     } else {
       setState(() {
-        _errorMessage = error;
+        _errorMessage = "Could not connect to Cloud OS. Check URL.";
       });
     }
   }
@@ -100,7 +86,7 @@ class _LoginScreenState extends State<LoginScreen> {
     return Scaffold(
       backgroundColor: Colors.grey[900],
       body: Center(
-        child: SingleChildScrollView( // Added for keyboard space
+        child: SingleChildScrollView( 
           padding: const EdgeInsets.all(24.0),
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
@@ -149,39 +135,6 @@ class _LoginScreenState extends State<LoginScreen> {
                   prefixIcon: const Icon(Icons.link, color: Colors.blue),
                 ),
               ),
-              const SizedBox(height: 16),
-              TextField(
-                controller: _usernameController,
-                style: const TextStyle(color: Colors.white),
-                decoration: InputDecoration(
-                  labelText: 'Username',
-                  labelStyle: const TextStyle(color: Colors.grey),
-                  filled: true,
-                  fillColor: Colors.grey[800],
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
-                    borderSide: BorderSide.none,
-                  ),
-                  prefixIcon: const Icon(Icons.person, color: Colors.grey),
-                ),
-              ),
-              const SizedBox(height: 16),
-              TextField(
-                controller: _passwordController,
-                obscureText: true,
-                style: const TextStyle(color: Colors.white),
-                decoration: InputDecoration(
-                  labelText: 'Password',
-                  labelStyle: const TextStyle(color: Colors.grey),
-                  filled: true,
-                  fillColor: Colors.grey[800],
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
-                    borderSide: BorderSide.none,
-                  ),
-                  prefixIcon: const Icon(Icons.lock, color: Colors.grey),
-                ),
-              ),
               const SizedBox(height: 32),
               SizedBox(
                 width: double.infinity,
@@ -193,7 +146,7 @@ class _LoginScreenState extends State<LoginScreen> {
                       borderRadius: BorderRadius.circular(12),
                     ),
                   ),
-                  onPressed: _isLoading ? null : _login,
+                  onPressed: _isLoading ? null : () => _login(_urlController.text),
                   child: _isLoading
                       ? const SizedBox(
                           height: 20,
@@ -213,14 +166,6 @@ class _LoginScreenState extends State<LoginScreen> {
                         ),
                 ),
               ),
-              const SizedBox(height: 10),
-              TextButton(
-                 onPressed: _isLoading ? null : _autoConnect,
-                 child: Text(
-                   "Check for New Connection",
-                   style: GoogleFonts.poppins(color: Colors.white70),
-                 )
-              ),
             ],
           ),
         ),
@@ -228,4 +173,3 @@ class _LoginScreenState extends State<LoginScreen> {
     );
   }
 }
-

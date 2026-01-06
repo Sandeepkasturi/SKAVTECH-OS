@@ -14,17 +14,62 @@ class ActionExecutor:
     Enforces an allowlist of commands to prevent arbitrary execution.
     """
     
-    ALLOWED_COMMANDS = {
-        "restart_nginx": ["sudo", "systemctl", "restart", "nginx"],
-        "stop_nginx": ["sudo", "systemctl", "stop", "nginx"],
-        "start_nginx": ["sudo", "systemctl", "start", "nginx"],
-        "get_logs": ["tail", "-n", "50", "/var/log/syslog"],
-        "update_system": ["sudo", "apt", "update"],
-        "whoami": ["whoami"],
-    }
+    ALLOWED_COMMANDS = {}
+    COMMANDS_FILE = "commands.json"
 
     def __init__(self):
         self.os_type = platform.system()
+        self.load_commands()
+
+    def load_commands(self):
+        import json
+        import os
+        
+        # Default commands
+        defaults = {
+            "restart_nginx": ["sudo", "systemctl", "restart", "nginx"],
+            "stop_nginx": ["sudo", "systemctl", "stop", "nginx"],
+            "start_nginx": ["sudo", "systemctl", "start", "nginx"],
+            "get_logs": ["tail", "-n", "50", "/var/log/syslog"],
+            "update_system": ["sudo", "apt", "update"],
+            "whoami": ["whoami"],
+            "start_desktop": ["bash", "agent/scripts/start_vnc.sh"],
+            "stop_desktop": ["pkill", "-f", "vnc"],
+        }
+        
+        if os.path.exists(self.COMMANDS_FILE):
+            try:
+                with open(self.COMMANDS_FILE, 'r') as f:
+                    self.ALLOWED_COMMANDS = json.load(f)
+            except Exception as e:
+                logger.error(f"Failed to load commands: {e}")
+                self.ALLOWED_COMMANDS = defaults
+        else:
+            self.ALLOWED_COMMANDS = defaults
+            self.save_commands()
+
+    def save_commands(self):
+        import json
+        with open(self.COMMANDS_FILE, 'w') as f:
+            json.dump(self.ALLOWED_COMMANDS, f, indent=4)
+
+    def add_command(self, name: str, command: str):
+        # command string needs to be split for subprocess if it's a simple string
+        # For simplicity in this UI, we might assume the user types a full command string
+        # which we then split securely or use shell=True (Riskier, but "Agent" implies control).
+        # ideally we split by shlex.
+        import shlex
+        try:
+            parts = shlex.split(command)
+            self.ALLOWED_COMMANDS[name] = parts
+            self.save_commands()
+            return True
+        except Exception as e:
+            logger.error(f"Failed to parse command: {e}")
+            return False
+
+    def get_commands(self):
+        return self.ALLOWED_COMMANDS
 
     def is_allowed(self, action_name: str) -> bool:
         return action_name in self.ALLOWED_COMMANDS
