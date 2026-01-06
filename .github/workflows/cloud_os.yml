@@ -5,6 +5,9 @@ on:
   push:
     branches: [ "main" ]
 
+permissions:
+  contents: write # REQUIRED for pushing connection.txt
+
 jobs:
   provision-os:
     runs-on: ubuntu-latest
@@ -16,7 +19,7 @@ jobs:
         uses: actions/setup-python@v4
         with:
           python-version: '3.10'
-          cache: 'pip' # Caches dependencies using requirements.txt
+          cache: 'pip'
 
       - name: Install Dependencies
         run: |
@@ -31,13 +34,16 @@ jobs:
           nohup python backend/main.py > backend.log 2>&1 &
           echo "Backend started."
 
-      - name: Install Localtunnel
-        run: npm install -g localtunnel
+      - name: Install Cloudflare Tunnel
+        run: |
+          curl -L --output cloudflared.deb https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-amd64.deb
+          sudo dpkg -i cloudflared.deb
 
       - name: Create Secure Tunnel
         run: |
-          # Start localtunnel on port 8000
-          nohup lt --port 8000 > tunnel.log 2>&1 &
+          # Start tunnel and output URL
+          # We use nohup to keep it running
+          nohup cloudflared tunnel --url http://localhost:8000 > tunnel.log 2>&1 &
           
           echo "Waiting for tunnel..."
           sleep 10
@@ -45,12 +51,18 @@ jobs:
           echo "========================================================"
           echo "   YOUR CLOUD OS IS READY!"
           echo "========================================================"
-          echo "Copy the URL below and paste it into your Mobile App:"
-          echo ""
+          
       - name: Publish Connection URL
         run: |
-          # Extract URL
-          URL=$(grep -o 'https://.*\.loca\.lt' tunnel.log | head -n 1)
+          # Extract URL from Cloudflare logs
+          URL=$(grep -o 'https://.*\.trycloudflare.com' tunnel.log | head -n 1)
+          
+          if [ -z "$URL" ]; then
+            echo "Error: Could not find Cloudflare URL in log."
+            cat tunnel.log
+            exit 1
+          fi
+
           echo "$URL" > connection.txt
           
           # Configure Git
@@ -58,8 +70,9 @@ jobs:
           git config --global user.email 'bot@noreply.github.com'
           
           # Commit and Push (Skip CI to prevent loops)
+          git pull
           git add connection.txt
-          git commit -m "Update connection URL [skip ci]"
+          git commit -m "Update connection URL [skip ci]" || echo "No changes to commit"
           git push
           
           echo "URL Published to connection.txt: $URL"
