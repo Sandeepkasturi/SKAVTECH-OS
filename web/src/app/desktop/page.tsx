@@ -1,62 +1,68 @@
-'use client';
+"use client";
 
-import { ArrowLeft } from 'lucide-react';
-import Link from 'next/link';
-import { useEffect, useState } from 'react';
+import React, { useState } from "react";
+import { ArrowLeft, Keyboard, Settings2 } from "lucide-react";
+import Link from "next/link";
+import dynamic from "next/dynamic";
+
+const VNCViewer = dynamic(() => import("@/components/VNCViewer"), { ssr: false });
 
 export default function DesktopPage() {
-    const [iframeUrl, setIframeUrl] = useState('');
+    const [showControls, setShowControls] = useState(false);
 
-    useEffect(() => {
-        // In a real scenario, we might need to fetch the tunneling URL for VNC
-        // For local dev, localhost:6080 is fine.
+    // In production, these should come from env or user settings
+    // Port 6080 is the default websockify port from our Docker container
+    // We assume localhost if running locally, or the server IP if remote.
+    // Since we are running on 'localhost' for the user simulation:
+    // Dynamic VNC URL construction
+    const [vncUrl, setVncUrl] = useState<string>("");
 
-        const fetchUrl = async () => {
-            try {
-                // We can reuse the proxy logic or just fetch raw txt again.
-                // For cleaner code, let's just fetch raw txt client-side or create a specific API for it.
-                // Let's use a quick client-side fetch to the raw UserContent
-                const res = await fetch('https://raw.githubusercontent.com/Sandeepkasturi/SKAVTECH-OS/main/connection.txt');
-                if (res.ok) {
-                    const url = (await res.text()).trim();
-                    if (url.startsWith('http')) {
-                        // Append vnc_lite.html
-                        setIframeUrl(`${url}/vnc_lite.html`);
-                        return;
-                    }
-                }
-            } catch (e) {
-                console.error("Failed to load VNC url", e);
-            }
-        };
-        fetchUrl();
+    React.useEffect(() => {
+        // Use env var if set, otherwise construct from current hostname
+        const envUrl = process.env.NEXT_PUBLIC_VNC_WS_URL;
+        if (envUrl) {
+            setVncUrl(envUrl);
+        } else {
+            // Default: Assume port 6080 on the same host
+            const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+            // If we are behind a reverse proxy (typical in prod), we might want '/websockify' on the same port
+            // But for this simple docker-compose setup, port 6080 is exposed separately.
+            setVncUrl(`${protocol}//${window.location.hostname}:6080/websockify`);
+        }
     }, []);
 
+    const password = "password"; // Default from Dockerfile
+
     return (
-        <div className="h-screen w-screen bg-black flex flex-col">
-            <div className="h-12 bg-gray-900 border-b border-gray-800 flex items-center px-4 justify-between">
-                <Link href="/" className="flex items-center gap-2 text-gray-300 hover:text-white transition-colors">
-                    <ArrowLeft size={20} />
-                    <span className="font-semibold">Back to Dashboard</span>
+        <div className="h-screen w-screen bg-black relative overscroll-none">
+            <VNCViewer url={vncUrl} password={password} />
+
+            {/* Mobile Touch Controls Overlay */}
+            <div
+                className="absolute top-4 left-4 z-50 flex space-x-2 pointer-events-auto opacity-50 hover:opacity-100 transition-opacity"
+            >
+                <Link href="/dashboard">
+                    <button className="bg-white/10 backdrop-blur-md p-2 rounded-full text-white hover:bg-white/20">
+                        <ArrowLeft className="w-6 h-6" />
+                    </button>
                 </Link>
-                <div className="text-gray-500 text-sm">
-                    SkavTech OS Remote Desktop
+                <button
+                    onClick={() => setShowControls(!showControls)}
+                    className="bg-white/10 backdrop-blur-md p-2 rounded-full text-white hover:bg-white/20"
+                >
+                    <Settings2 className="w-6 h-6" />
+                </button>
+            </div>
+
+            {showControls && (
+                <div className="absolute bottom-8 left-1/2 -translate-x-1/2 z-50 bg-black/80 backdrop-blur-lg border border-white/10 rounded-2xl p-4 flex space-x-4">
+                    <button className="flex flex-col items-center space-y-1 text-white/80 hover:text-white">
+                        <Keyboard className="w-6 h-6" />
+                        <span className="text-[10px]">Keyboard</span>
+                    </button>
+                    {/* Add more virtual keys like ESC, CTRL, ALT here */}
                 </div>
-            </div>
-            <div className="flex-1 relative">
-                {iframeUrl ? (
-                    <iframe
-                        src={iframeUrl}
-                        className="w-full h-full border-none"
-                        allowFullScreen
-                    />
-                ) : (
-                    <div className="flex flex-col items-center justify-center h-full text-white gap-4">
-                        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-white"></div>
-                        <p>Connecting to Cloud OS...</p>
-                    </div>
-                )}
-            </div>
+            )}
         </div>
     );
 }

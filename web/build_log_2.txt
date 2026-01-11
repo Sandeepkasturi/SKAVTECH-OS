@@ -1,0 +1,44 @@
+ΓÜá Warning: Next.js inferred your workspace root, but it may not be correct.
+ We detected multiple lockfiles and selected the directory of C:\Users\Sandeep Kasturi\package-lock.json as the root directory.
+ To silence this warning, set `outputFileTracingRoot` in your Next.js config, or consider removing one of the lockfiles if it's not needed.
+   See https://nextjs.org/docs/app/api-reference/config/next-config-js/output#caveats for more information.
+ Detected additional lockfiles: 
+   * C:\Users\Sandeep Kasturi\SKAV TECH OS\web\package-lock.json
+
+Γû▓ Next.js 16.1.1 (webpack)
+
+  Creating an optimized production build ...
+ Γ£ô (pwa) Compiling for server...
+ Γ£ô (pwa) Compiling for server...
+ Γ£ô (pwa) Compiling for client (static)...
+ Γùï (pwa) Service worker: C:\Users\Sandeep Kasturi\SKAV TECH OS\web\public\sw.js
+ Γùï (pwa)   URL: /sw.js
+ Γùï (pwa)   Scope: /
+Failed to compile.
+
+./node_modules/@novnc/novnc/lib/util/browser.js
+Module parse failed: Top-level-await is only supported in EcmaScript Modules
+File was processed with these loaders:
+ * ./node_modules/next/dist/build/webpack/loaders/next-flight-client-module-loader.js
+ * ./node_modules/next/dist/build/webpack/loaders/next-swc-loader.js
+You may need an additional loader to handle the result of these loaders.
+Error: Top-level-await is only supported in EcmaScript Modules
+    at C:\Users\Sandeep Kasturi\SKAV TECH OS\web\node_modules\next\dist\compiled\webpack\bundle5.js:29:790535
+    at Hook.eval [as call] (eval at create (C:\Users\Sandeep Kasturi\SKAV TECH OS\web\node_modules\next\dist\compiled\webpack\bundle5.js:14:9002), <anonymous>:7:16)
+    at Hook.CALL_DELEGATE [as _call] (C:\Users\Sandeep Kasturi\SKAV TECH OS\web\node_modules\next\dist\compiled\webpack\bundle5.js:14:6272)
+    at JavascriptParser.walkAwaitExpression (C:\Users\Sandeep Kasturi\SKAV TECH OS\web\node_modules\next\dist\compiled\webpack\bundle5.js:29:1021785)
+    at JavascriptParser.walkExpression (C:\Users\Sandeep Kasturi\SKAV TECH OS\web\node_modules\next\dist\compiled\webpack\bundle5.js:29:1020468)
+    at JavascriptParser.walkAssignmentExpression (C:\Users\Sandeep Kasturi\SKAV TECH OS\web\node_modules\next\dist\compiled\webpack\bundle5.js:29:1024731)
+    at JavascriptParser.walkExpression (C:\Users\Sandeep Kasturi\SKAV TECH OS\web\node_modules\next\dist\compiled\webpack\bundle5.js:29:1020407)
+    at handleAssignExport (C:\Users\Sandeep Kasturi\SKAV TECH OS\web\node_modules\next\dist\compiled\webpack\bundle5.js:29:737963)
+    at C:\Users\Sandeep Kasturi\SKAV TECH OS\web\node_modules\next\dist\compiled\webpack\bundle5.js:29:738083
+    at Hook.eval [as call] (eval at create (C:\Users\Sandeep Kasturi\SKAV TECH OS\web\node_modules\next\dist\compiled\webpack\bundle5.js:14:9002), <anonymous>:7:16)
+
+Import trace for requested module:
+./node_modules/@novnc/novnc/lib/util/browser.js
+./node_modules/@novnc/novnc/lib/rfb.js
+./src/components/VNCViewer.tsx
+./src/app/desktop/page.tsx
+
+
+> Build failed because of webpack errors

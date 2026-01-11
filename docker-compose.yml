@@ -1,0 +1,38 @@
+version: '3.8'
+
+services:
+  # ---------------------------------------------------------------------------
+  # BACKEND: Ubuntu OS + VNC + Chrome
+  # ---------------------------------------------------------------------------
+  skav-os:
+    build:
+      context: ./docker
+    container_name: skav-os-production
+    restart: always
+    # Expose ports for direct access if needed, or internal for proxy
+    ports:
+      - "6080:6080" # Websockify (needed for client browser to connect)
+      - "5901:5901" # VNC Control (optional)
+    environment:
+      - RESOLUTION=1280x720
+      - PASSWORD=password
+    shm_size: '2gb' # Important for Chrome stability!
+
+  # ---------------------------------------------------------------------------
+  # FRONTEND: Next.js Web Application
+  # ---------------------------------------------------------------------------
+  web:
+    build:
+      context: ./web
+      dockerfile: Dockerfile
+    container_name: skav-web-production
+    restart: always
+    ports:
+      - "3000:3000"
+    environment:
+      # This variable must be set to the PUBLIC IP or domain of your VPS
+      # Because the browser client needs to connect to it.
+      # If running locally, localhost is fine.
+      - NEXT_PUBLIC_VNC_WS_URL=ws://localhost:6080/websockify
+    depends_on:
+      - skav-os

@@ -1,0 +1,15 @@
+#!/bin/bash
+# Wrapper to run Chrome without sandbox, required for Docker
+# Ensure this file uses Unix line endings (LF)
+
+# Try standard locations
+if [ -f "/opt/google/chrome/google-chrome" ]; then
+    REAL_CHROME="/opt/google/chrome/google-chrome"
+elif [ -f "/usr/bin/google-chrome-stable" ]; then
+    REAL_CHROME="/usr/bin/google-chrome-stable"
+else
+    echo "Chrome not found!"
+    exit 1
+fi
+
+exec "$REAL_CHROME" --no-sandbox --disable-dev-shm-usage --disable-gpu --test-type "$@"
